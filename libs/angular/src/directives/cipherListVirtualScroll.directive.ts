@@ -3,36 +3,48 @@ import {
   FixedSizeVirtualScrollStrategy,
   VIRTUAL_SCROLL_STRATEGY,
 } from "@angular/cdk/scrolling";
-import { Directive, forwardRef } from "@angular/core";
+import {
+  Directive,
+  ElementRef,
+  forwardRef,
+  NgZone
+} from "@angular/core";
 
 // Custom virtual scroll strategy for cdk-virtual-scroll
 // Uses a sample list item to set the itemSize for FixedSizeVirtualScrollStrategy
-// The use case is the same as FixedSizeVirtualScrollStrategy, but it avoids locking in pixel sizes in the template.
 export class CipherListVirtualScrollStrategy extends FixedSizeVirtualScrollStrategy {
-  private checkItemSizeCallback: any;
-  private timeout: any;
+  private checkItemSizeCallback: () => void;
+  private timeoutId?: ReturnType<typeof setTimeout>;
 
   constructor(
     itemSize: number,
     minBufferPx: number,
     maxBufferPx: number,
-    checkItemSizeCallback: any,
+    checkItemSizeCallback: () => void,
+    private zone: NgZone,
   ) {
     super(itemSize, minBufferPx, maxBufferPx);
     this.checkItemSizeCallback = checkItemSizeCallback;
   }
 
-  onContentRendered() {
-    if (this.timeout != null) {
-      clearTimeout(this.timeout);
+  override onContentRendered(): void {
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
     }
 
-    this.timeout = setTimeout(this.checkItemSizeCallback, 500);
+    // Executa fora do Angular para evitar ciclos extras de change detection
+    this.zone.runOutsideAngular(() => {
+      this.timeoutId = setTimeout(() => {
+        this.zone.run(this.checkItemSizeCallback);
+      }, 500);
+    });
   }
 }
 
-export function _cipherListVirtualScrollStrategyFactory(cipherListDir: CipherListVirtualScroll) {
-  return cipherListDir._scrollStrategy;
+export function cipherListVirtualScrollStrategyFactory(
+  dir: CipherListVirtualScroll,
+): CipherListVirtualScrollStrategy {
+  return dir.scrollStrategy;
 }
 
 @Directive({
@@ -40,7 +52,7 @@ export function _cipherListVirtualScrollStrategyFactory(cipherListDir: CipherLis
   providers: [
     {
       provide: VIRTUAL_SCROLL_STRATEGY,
-      useFactory: _cipherListVirtualScrollStrategyFactory,
+      useFactory: cipherListVirtualScrollStrategyFactory,
       deps: [forwardRef(() => CipherListVirtualScroll)],
     },
   ],
@@ -48,31 +60,42 @@ export function _cipherListVirtualScrollStrategyFactory(cipherListDir: CipherLis
 // FIXME(https://bitwarden.atlassian.net/browse/PM-28232): Use Directive suffix
 // eslint-disable-next-line @angular-eslint/directive-class-suffix
 export class CipherListVirtualScroll extends CdkFixedSizeVirtualScroll {
-  _scrollStrategy: CipherListVirtualScrollStrategy;
+  readonly scrollStrategy: CipherListVirtualScrollStrategy;
 
-  constructor() {
+  constructor(
+    private host: ElementRef<HTMLElement>,
+    private zone: NgZone,
+  ) {
     super();
-    this._scrollStrategy = new CipherListVirtualScrollStrategy(
+
+    this.scrollStrategy = new CipherListVirtualScrollStrategy(
       this.itemSize,
       this.minBufferPx,
       this.maxBufferPx,
       this.checkAndUpdateItemSize,
+      this.zone,
     );
   }
 
-  checkAndUpdateItemSize = () => {
-    const sampleItem = document.querySelector(
-      "cdk-virtual-scroll-viewport .virtual-scroll-item",
-    ) as HTMLElement;
+  private checkAndUpdateItemSize = (): void => {
+    const sampleItem = this.findSampleItem();
     const newItemSize = sampleItem?.offsetHeight;
 
-    if (newItemSize != null && newItemSize !== this.itemSize) {
-      this.itemSize = newItemSize;
-      this._scrollStrategy.updateItemAndBufferSize(
-        this.itemSize,
-        this.minBufferPx,
-        this.maxBufferPx,
-      );
+    if (newItemSize && newItemSize !== this.itemSize) {
+      this.updateItemSize(newItemSize);
     }
   };
+
+  private findSampleItem(): HTMLElement | null {
+    return this.host.nativeElement.querySelector(".virtual-scroll-item");
+  }
+
+  private updateItemSize(newSize: number): void {
+    this.itemSize = newSize;
+    this.scrollStrategy.updateItemAndBufferSize(
+      this.itemSize,
+      this.minBufferPx,
+      this.maxBufferPx,
+    );
+  }
 }
