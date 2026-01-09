@@ -710,7 +710,7 @@ private async ensureInlineMenuPosition(
   /**
    * Handles the behavior of a persistent child element that is forcing itself to
    * the bottom of the menu container. This method will ensure that the inline menu
-   * elements are not obscured by the persistent child element.
+   * elements are not obscured by the persistent child elementlll.
    *
    * @param lastChild - The last child of the menu container.
    */
