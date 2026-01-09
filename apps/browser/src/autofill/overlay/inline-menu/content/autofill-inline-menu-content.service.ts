@@ -623,60 +623,16 @@ export class AutofillInlineMenuContentService implements AutofillInlineMenuConte
    * idle moment in the execution of the main thread is detected.
    */
   private processContainerElementMutation = async (containerElement: HTMLElement) => {
-    // If the page contains risks, tear down and prevent building the inline menu experience.
-    const pageRisksFound = await this.checkPageRisks();
-    if (pageRisksFound) {
-      return;
-    }
+  if (await this.shouldAbortContainerProcessing()) return;
+  if (!this.buttonElement) return;
 
-    if (!this.buttonElement) {
-      return;
-    }
+  const state = this.buildContainerState(containerElement);
 
-    const lastChild = containerElement.lastElementChild;
-    const secondToLastChild = lastChild?.previousElementSibling;
-    const lastChildIsInlineMenuList = lastChild === this.listElement;
-    const lastChildIsInlineMenuButton = lastChild === this.buttonElement;
-    const secondToLastChildIsInlineMenuButton = secondToLastChild === this.buttonElement;
+  if (this.shouldHandlePersistentOverride(state)) return;
 
-    if (!lastChild) {
-      return;
-    }
+  await this.ensureInlineMenuPosition(containerElement, state);
+};
 
-    const lastChildEncounterCount = this.lastElementOverrides.get(lastChild) || 0;
-    if (!lastChildIsInlineMenuList && !lastChildIsInlineMenuButton && lastChildEncounterCount < 3) {
-      this.lastElementOverrides.set(lastChild, lastChildEncounterCount + 1);
-    }
-
-    const lastChildEncounterCountAfterUpdate = this.lastElementOverrides.get(lastChild) || 0;
-    if (lastChildEncounterCountAfterUpdate >= 3) {
-      this.handlePersistentLastChildOverride(lastChild);
-
-      return;
-    }
-
-    const isInlineMenuListVisible = await this.isInlineMenuListVisible();
-    if (
-      !lastChild ||
-      (lastChildIsInlineMenuList && secondToLastChildIsInlineMenuButton) ||
-      (lastChildIsInlineMenuButton && !isInlineMenuListVisible)
-    ) {
-      return;
-    }
-
-    if (
-      (lastChildIsInlineMenuList && !secondToLastChildIsInlineMenuButton) ||
-      (lastChildIsInlineMenuButton && isInlineMenuListVisible)
-    ) {
-      if (!this.listElement) {
-        return;
-      }
-      containerElement.insertBefore(this.buttonElement, this.listElement);
-      return;
-    }
-
-    containerElement.insertBefore(lastChild, this.buttonElement);
-  };
 
   /**
    * Handles the behavior of a persistent child element that is forcing itself to
