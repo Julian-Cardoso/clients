@@ -193,6 +193,174 @@ async function initNotificationBar(message: NotificationBarWindowMessage) {
   return renderAddOrUpdateNotification(context);
 }
 
+function buildNotificationContext(initData: NotificationBarIframeInitData) {
+  const {
+    isVaultLocked,
+    removeIndividualVault: personalVaultDisallowed,
+    theme,
+  } = initData;
+
+  const i18n = getI18n();
+  const resolvedTheme = getResolvedTheme(theme ?? ThemeTypes.Light);
+  const notificationType = resolveNotificationType(initData);
+  const headerMessage = getNotificationHeaderMessage(i18n, notificationType);
+  const notificationTestId = getNotificationTestId(notificationType);
+
+  return {
+    initData,
+    i18n,
+    resolvedTheme,
+    notificationType,
+    headerMessage,
+    notificationTestId,
+    isVaultLocked,
+    personalVaultIsAllowed: !personalVaultDisallowed,
+  };
+}
+
+function renderUnlockNotification(context: ReturnType<typeof buildNotificationContext>) {
+  const {
+    initData,
+    headerMessage,
+    notificationType,
+    notificationTestId,
+    resolvedTheme,
+    personalVaultIsAllowed,
+    i18n,
+  } = context;
+
+  const baseConfig = {
+    ...initData,
+    headerMessage,
+    type: notificationType,
+    notificationTestId,
+    theme: resolvedTheme,
+    personalVaultIsAllowed,
+    handleCloseNotification,
+    handleEditOrUpdateAction,
+    i18n,
+  };
+
+  const handleSaveAction = () => {
+    sendSaveCipherMessage(null, true);
+    render(
+      NotificationContainer({
+        ...baseConfig,
+        handleSaveAction: () => {},
+        isLoading: true,
+      }),
+      document.body,
+    );
+  };
+
+  return render(
+    NotificationContainer({ ...baseConfig, handleSaveAction }),
+    document.body,
+  );
+
+  function handleEditOrUpdateAction(e: Event) {
+    e.preventDefault();
+    sendSaveCipherMessage(
+      selectedCipherSignal.get(),
+      notificationType === NotificationTypes.Add,
+    );
+  }
+}
+
+function isAtRiskPassword(initData: NotificationBarIframeInitData) {
+  return initData.type === NotificationTypes.AtRiskPassword;
+}
+
+function renderAtRiskNotification(context: ReturnType<typeof buildNotificationContext>) {
+  const {
+    initData,
+    resolvedTheme,
+    i18n,
+    notificationTestId,
+  } = context;
+
+  return render(
+    AtRiskNotification({
+      ...initData,
+      type: initData.type as NotificationType,
+      theme: resolvedTheme,
+      i18n,
+      notificationTestId,
+      params: initData.params,
+      handleCloseNotification,
+    }),
+    document.body,
+  );
+}
+
+async function renderAddOrUpdateNotification(
+  context: ReturnType<typeof buildNotificationContext>,
+) {
+  const {
+    initData,
+    headerMessage,
+    notificationType,
+    resolvedTheme,
+    notificationTestId,
+    personalVaultIsAllowed,
+    i18n,
+  } = context;
+
+  const orgId = selectedVaultSignal.get();
+
+  const [organizations, folders, ciphers, collections] = await loadVaultData(orgId);
+
+  notificationBarIframeInitData = {
+    ...initData,
+    organizations,
+    folders,
+    ciphers,
+    collections,
+  };
+
+  return render(
+    NotificationContainer({
+      ...notificationBarIframeInitData,
+      headerMessage,
+      type: notificationType,
+      theme: resolvedTheme,
+      notificationTestId,
+      personalVaultIsAllowed,
+      handleCloseNotification,
+      handleSaveAction,
+      handleEditOrUpdateAction,
+      i18n,
+    }),
+    document.body,
+  );
+
+  function handleEditOrUpdateAction(e: Event) {
+    e.preventDefault();
+    sendSaveCipherMessage(
+      selectedCipherSignal.get(),
+      notificationType === NotificationTypes.Add,
+    );
+  }
+}
+
+function loadVaultData(orgId?: string) {
+  return Promise.all([
+    new Promise<OrgView[]>((resolve) =>
+      sendPlatformMessage({ command: "bgGetOrgData" }, resolve),
+    ),
+    new Promise<FolderView[]>((resolve) =>
+      sendPlatformMessage({ command: "bgGetFolderData" }, resolve),
+    ),
+    new Promise<NotificationCipherData[]>((resolve) =>
+      sendPlatformMessage({ command: "bgGetDecryptedCiphers" }, resolve),
+    ),
+    new Promise<CollectionView[]>((resolve) =>
+      sendPlatformMessage({ command: "bgGetCollectionData", orgId }, resolve),
+    ),
+  ]);
+}
+
+
 
 function handleCloseNotification(e: Event) {
   e.preventDefault();
