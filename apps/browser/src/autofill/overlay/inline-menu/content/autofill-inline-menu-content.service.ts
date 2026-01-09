@@ -633,6 +633,12 @@ export class AutofillInlineMenuContentService implements AutofillInlineMenuConte
   await this.ensureInlineMenuPosition(containerElement, state);
 };
 
+private async shouldAbortContainerProcessing(): Promise<boolean> {
+  const pageRisksFound = await this.checkPageRisks();
+  return pageRisksFound;
+}
+
+
 
   /**
    * Handles the behavior of a persistent child element that is forcing itself to
