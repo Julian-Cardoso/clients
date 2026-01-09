@@ -175,119 +175,24 @@ export function getNotificationTestId(
 }
 
 async function initNotificationBar(message: NotificationBarWindowMessage) {
-  const { initData } = message;
-  if (!initData) {
-    return;
+  if (!message.initData) return;
+
+  notificationBarIframeInitData = message.initData;
+
+  const context = buildNotificationContext(notificationBarIframeInitData);
+  appendHeaderMessageToTitle(context.headerMessage);
+
+  if (context.isVaultLocked) {
+    return renderUnlockNotification(context);
   }
 
-  notificationBarIframeInitData = initData;
-  const {
-    isVaultLocked,
-    removeIndividualVault: personalVaultDisallowed,
-    theme,
-  } = notificationBarIframeInitData;
-  const i18n = getI18n();
-  const resolvedTheme = getResolvedTheme(theme ?? ThemeTypes.Light);
-
-  const notificationType = resolveNotificationType(notificationBarIframeInitData);
-  const headerMessage = getNotificationHeaderMessage(i18n, notificationType);
-  const notificationTestId = getNotificationTestId(notificationType);
-  appendHeaderMessageToTitle(headerMessage);
-
-  if (isVaultLocked) {
-    const notificationConfig = {
-      ...notificationBarIframeInitData,
-      headerMessage,
-      type: notificationType,
-      notificationTestId,
-      theme: resolvedTheme,
-      personalVaultIsAllowed: !personalVaultDisallowed,
-      handleCloseNotification,
-      handleEditOrUpdateAction,
-      i18n,
-    };
-
-    const handleSaveAction = () => {
-      // cipher ID is null while vault is locked.
-      sendSaveCipherMessage(null, true);
-
-      render(
-        NotificationContainer({
-          ...notificationConfig,
-          handleSaveAction: () => {},
-          isLoading: true,
-        }),
-        document.body,
-      );
-    };
-
-    const UnlockNotification = NotificationContainer({ ...notificationConfig, handleSaveAction });
-
-    return render(UnlockNotification, document.body);
+  if (isAtRiskPassword(notificationBarIframeInitData)) {
+    return renderAtRiskNotification(context);
   }
 
-  // Handle AtRiskPasswordNotification render
-  if (notificationBarIframeInitData.type === NotificationTypes.AtRiskPassword) {
-    return render(
-      AtRiskNotification({
-        ...notificationBarIframeInitData,
-        type: notificationBarIframeInitData.type as NotificationType,
-        theme: resolvedTheme,
-        i18n,
-        notificationTestId,
-        params: initData.params,
-        handleCloseNotification,
-      }),
-      document.body,
-    );
-  }
-
-  // Default scenario: add or update password
-  const orgId = selectedVaultSignal.get();
-
-  await Promise.all([
-    new Promise<OrgView[]>((resolve) => sendPlatformMessage({ command: "bgGetOrgData" }, resolve)),
-    new Promise<FolderView[]>((resolve) =>
-      sendPlatformMessage({ command: "bgGetFolderData" }, resolve),
-    ),
-    new Promise<NotificationCipherData[]>((resolve) =>
-      sendPlatformMessage({ command: "bgGetDecryptedCiphers" }, resolve),
-    ),
-    new Promise<CollectionView[]>((resolve) =>
-      sendPlatformMessage({ command: "bgGetCollectionData", orgId }, resolve),
-    ),
-  ]).then(([organizations, folders, ciphers, collections]) => {
-    notificationBarIframeInitData = {
-      ...notificationBarIframeInitData,
-      organizations,
-      folders,
-      ciphers,
-      collections,
-    };
-
-    // @TODO use context to avoid prop drilling
-    return render(
-      NotificationContainer({
-        ...notificationBarIframeInitData,
-        headerMessage,
-        type: notificationType,
-        theme: resolvedTheme,
-        notificationTestId,
-        personalVaultIsAllowed: !personalVaultDisallowed,
-        handleCloseNotification,
-        handleSaveAction,
-        handleEditOrUpdateAction,
-        i18n,
-      }),
-      document.body,
-    );
-  });
-
-  function handleEditOrUpdateAction(e: Event) {
-    e.preventDefault();
-    sendSaveCipherMessage(selectedCipherSignal.get(), notificationType === NotificationTypes.Add);
-  }
+  return renderAddOrUpdateNotification(context);
 }
+
 
 function handleCloseNotification(e: Event) {
   e.preventDefault();
