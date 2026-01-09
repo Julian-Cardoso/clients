@@ -638,6 +638,73 @@ private async shouldAbortContainerProcessing(): Promise<boolean> {
   return pageRisksFound;
 }
 
+private buildContainerState(containerElement: HTMLElement) {
+  const lastChild = containerElement.lastElementChild;
+  const secondToLastChild = lastChild?.previousElementSibling;
+
+  return {
+    lastChild,
+    secondToLastChild,
+    lastChildIsList: lastChild === this.listElement,
+    lastChildIsButton: lastChild === this.buttonElement,
+    secondIsButton: secondToLastChild === this.buttonElement,
+  };
+}
+
+private shouldHandlePersistentOverride(state: {
+  lastChild: Element | null;
+}): boolean {
+  if (!state.lastChild) return true;
+
+  const count = this.lastElementOverrides.get(state.lastChild) || 0;
+
+  if (count < 3 && !this.isInlineMenuElement(state.lastChild)) {
+    this.lastElementOverrides.set(state.lastChild, count + 1);
+    return true;
+  }
+
+  if (count >= 3) {
+    this.handlePersistentLastChildOverride(state.lastChild);
+    return true;
+  }
+
+  return false;
+}
+
+private isInlineMenuElement(element: Element) {
+  return element === this.buttonElement || element === this.listElement;
+}
+
+private async ensureInlineMenuPosition(
+  containerElement: HTMLElement,
+  state: {
+    lastChild: Element | null;
+    lastChildIsList: boolean;
+    lastChildIsButton: boolean;
+    secondIsButton: boolean;
+  },
+) {
+  const isListVisible = await this.isInlineMenuListVisible();
+
+  if (
+    (state.lastChildIsList && state.secondIsButton) ||
+    (state.lastChildIsButton && !isListVisible)
+  ) {
+    return;
+  }
+
+  if (
+    (state.lastChildIsList && !state.secondIsButton) ||
+    (state.lastChildIsButton && isListVisible)
+  ) {
+    if (!this.listElement) return;
+    containerElement.insertBefore(this.buttonElement!, this.listElement);
+    return;
+  }
+
+  containerElement.insertBefore(state.lastChild!, this.buttonElement!);
+}
+
 
 
   /**
