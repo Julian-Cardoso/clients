@@ -163,16 +163,13 @@ describe("OverlayNotificationsContentService", () => {
   });
 
   describe("closing the notification bar", () => {
-    beforeEach(async () => {
-      sendMockExtensionMessage({
-        command: "openNotificationBar",
-        data: {
-          type: NotificationType.ChangePassword,
-          typeData: mock<NotificationTypeData>(),
-        },
-      });
-      await flushPromises();
-    });
+    beforeEach(() => {
+  setupJestEnvironment();
+  setupSpies();
+  setupServices();
+  initializeAutofill();
+});
+
 
     it("triggers a fadeout of the notification bar", () => {
       sendMockExtensionMessage({
