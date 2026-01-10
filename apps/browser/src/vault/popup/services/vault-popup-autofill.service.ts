@@ -254,6 +254,27 @@ export class VaultPopupAutofillService {
   return true;
 }
 
+private async canProceedWithAutofill(
+  cipher: CipherView,
+  skipPasswordReprompt: boolean,
+): Promise<boolean> {
+  if (
+    skipPasswordReprompt ||
+    cipher.reprompt === CipherRepromptType.None
+  ) {
+    return true;
+  }
+
+  return this.passwordRepromptService.showPasswordPrompt();
+}
+
+private isValidAutofillContext(
+  tab: chrome.tabs.Tab,
+  pageDetails: PageDetail[],
+): boolean {
+  return !!tab && pageDetails.length > 0;
+}
+
 
   private async _closePopup(cipher: CipherView, tab: chrome.tabs.Tab | null) {
     if (BrowserPopupUtils.inSingleActionPopout(window, VaultPopoutType.viewVaultItem) && tab.id) {
