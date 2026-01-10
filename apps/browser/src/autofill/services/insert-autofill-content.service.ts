@@ -36,7 +36,7 @@ class InsertAutofillContentService implements InsertAutofillContentServiceInterf
 
   /**
    * Handles autofill of the forms on the current page based on the
-   * data within the passed fill script object.
+   * data within the passed fill script object..
    * @param {AutofillScript} fillScript
    * @returns {Promise<void>}
    * @public
