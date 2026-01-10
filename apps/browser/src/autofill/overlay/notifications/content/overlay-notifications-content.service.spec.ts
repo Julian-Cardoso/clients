@@ -170,6 +170,37 @@ describe("OverlayNotificationsContentService", () => {
   initializeAutofill();
 });
 
+  
+  function setupJestEnvironment() {
+  jest.useFakeTimers();
+}
+
+function setupSpies() {
+  jest.spyOn(utils, "sendExtensionMessage").mockImplementation(async () => null);
+  jest
+    .spyOn(HTMLIFrameElement.prototype, "contentWindow", "get")
+    .mockReturnValue(window);
+  postMessageSpy = jest.spyOn(window, "postMessage").mockImplementation(jest.fn());
+  bodyAppendChildSpy = jest.spyOn(globalThis.document.body, "appendChild");
+}
+
+function setupServices() {
+  domQueryService = mock<DomQueryService>();
+  domElementVisibilityService = new DomElementVisibilityService();
+  overlayNotificationsContentService = new OverlayNotificationsContentService();
+}
+
+function initializeAutofill() {
+  autofillInit = new AutofillInit(
+    domQueryService,
+    domElementVisibilityService,
+    undefined,
+    undefined,
+    overlayNotificationsContentService,
+  );
+  autofillInit.init();
+}
+
 
     it("triggers a fadeout of the notification bar", () => {
       sendMockExtensionMessage({
