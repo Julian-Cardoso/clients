@@ -124,6 +124,24 @@ private initializeComponent() {
   this.registerEvents();
 }
 
+async function initComponentWithConfig(
+  fixtureRef: () => ComponentFixture<ChangeKdfComponent>,
+  config: PBKDF2KdfConfig | Argon2KdfConfig,
+) {
+  mockKdfConfigService.getKdfConfig.mockResolvedValue(config);
+  const fixture = fixtureRef();
+  const component = fixture.componentInstance;
+  await component.ngOnInit();
+  return { fixture, component };
+}
+
+function getFormGroups(component: ChangeKdfComponent) {
+  const formGroup = component["formGroup"];
+  const kdfConfigFormGroup = formGroup.controls.kdfConfig;
+  return { formGroup, kdfConfigFormGroup };
+}
+
+
 
   describe("Component Initialization", () => {
     describe("given PBKDF2 configuration", () => {
