@@ -77,36 +77,17 @@ export class OverlayNotificationsContentService implements OverlayNotificationsC
    * @param message - The message containing the initialization data for the notification bar.
    */
   private async handleOpenNotificationBarMessage(message: NotificationsExtensionMessage) {
-    if (!message.data) {
-      return;
-    }
-    const { type, typeData, params } = message.data;
+  if (!this.isValidOpenMessage(message)) return;
 
-    if (!typeData) {
-      return;
-    }
+  const initData = this.buildInitData(message);
 
-    if (this.currentNotificationBarType && type !== this.currentNotificationBarType) {
-      this.closeNotificationBar();
-    }
-
-    const initData: NotificationBarIframeInitData = {
-      type: type as NotificationType,
-      isVaultLocked: typeData.isVaultLocked,
-      theme: typeData.theme,
-      removeIndividualVault: typeData.removeIndividualVault,
-      importType: typeData.importType,
-      launchTimestamp: typeData.launchTimestamp,
-      params,
-    };
-
-    if (globalThis.document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", () => this.openNotificationBar(initData));
-      return;
-    }
-
-    this.openNotificationBar(initData);
+  if (this.shouldReplaceNotification(initData.type)) {
+    this.closeNotificationBar();
   }
+
+  this.openWhenDomIsReady(initData);
+}
+
 
   /**
    * Closes the notification bar. If the message contains a flag to fade out the notification,
