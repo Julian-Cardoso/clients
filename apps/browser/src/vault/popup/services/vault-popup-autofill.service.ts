@@ -290,6 +290,13 @@ private async executeAutofill(
   });
 }
 
+private showAutofillError(): void {
+  this.toastService.showToast({
+    variant: "error",
+    title: null,
+    message: this.i18nService.t("autofillError"),
+  });
+}
 
 
 
