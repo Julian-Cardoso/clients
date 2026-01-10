@@ -37,16 +37,12 @@ export class VaultFilterComponent
   extends BaseVaultFilterComponent
   implements OnInit, OnDestroy, OnChanges
 {
-  // FIXME(https://bitwarden.atlassian.net/browse/CL-903): Migrate to Signals
-  // eslint-disable-next-line @angular-eslint/prefer-signals
   @Input() set organization(value: Organization) {
-    if (value && value !== this._organization) {
-      this._organization = value;
-      this.vaultFilterService.setOrganizationFilter(this._organization);
-    }
+    this.handleOrganizationChange(value);
   }
-  _organization: Organization;
-  protected destroy$: Subject<void>;
+
+  private _organization: Organization;
+  protected destroy$ = new Subject<void>();
 
   constructor(
     protected vaultFilterService: VaultFilterService,
@@ -78,19 +74,17 @@ export class VaultFilterComponent
     );
   }
 
+  // -------------------------
+  // Lifecycle
+  // -------------------------
+
   async ngOnInit() {
-    this.filters = await this.buildAllFilters();
-    if (!this.activeFilter.selectedCipherTypeNode) {
-      this.activeFilter.resetFilter();
-      this.activeFilter.selectedCollectionNode =
-        (await this.getDefaultFilter()) as TreeNode<CollectionFilter>;
-    }
-    this.isLoaded = true;
+    await this.initializeFilters();
   }
 
   async ngOnChanges(changes: SimpleChanges) {
     if (changes.organization) {
-      this.filters = await this.buildAllFilters();
+      await this.reloadFilters();
     }
   }
 
@@ -99,21 +93,47 @@ export class VaultFilterComponent
     this.destroy$.complete();
   }
 
-  async removeCollapsibleCollection() {
-    const collapsedNodes = await firstValueFrom(this.vaultFilterService.collapsedFilterNodes$);
+  // -------------------------
+  // Organização (LC)
+  // -------------------------
 
-    collapsedNodes.delete("AllCollections");
-    const userId = await firstValueFrom(this.activeUserId$);
-    await this.vaultFilterService.setCollapsedFilterNodes(collapsedNodes, userId);
+  private handleOrganizationChange(value: Organization): void {
+    if (value && value !== this._organization) {
+      this._organization = value;
+      this.vaultFilterService.setOrganizationFilter(this._organization);
+    }
   }
 
-  protected async addCollectionFilter(): Promise<VaultFilterSection> {
-    // Ensure the Collections filter is never collapsed for the org vault
-    // FIXME: Verify that this floating promise is intentional. If it is, add an explanatory comment and ensure there is proper error handling.
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    this.removeCollapsibleCollection();
+  // -------------------------
+  // Inicialização de filtros
+  // -------------------------
 
-    const collectionFilterSection: VaultFilterSection = {
+  private async initializeFilters(): Promise<void> {
+    this.filters = await this.buildAllFilters();
+    this.ensureDefaultFilterSelected();
+    this.isLoaded = true;
+  }
+
+  private async reloadFilters(): Promise<void> {
+    this.filters = await this.buildAllFilters();
+  }
+
+  private async ensureDefaultFilterSelected(): Promise<void> {
+    if (!this.activeFilter.selectedCipherTypeNode) {
+      this.activeFilter.resetFilter();
+      this.activeFilter.selectedCollectionNode =
+        (await this.getDefaultFilter()) as TreeNode<CollectionFilter>;
+    }
+  }
+
+  // -------------------------
+  // Coleções
+  // -------------------------
+
+  protected async addCollectionFilter(): Promise<VaultFilterSection> {
+    await this.ensureCollectionsAreExpanded();
+
+    return {
       data$: this.vaultFilterService.buildTypeTree(
         {
           id: "AllCollections",
@@ -136,15 +156,26 @@ export class VaultFilterComponent
       },
       action: this.applyCollectionFilter,
     };
-    return collectionFilterSection;
   }
 
+  private async ensureCollectionsAreExpanded(): Promise<void> {
+    const collapsedNodes = await firstValueFrom(this.vaultFilterService.collapsedFilterNodes$);
+    collapsedNodes.delete("AllCollections");
+
+    const userId = await firstValueFrom(this.activeUserId$);
+    await this.vaultFilterService.setCollapsedFilterNodes(collapsedNodes, userId);
+  }
+
+  // -------------------------
+  // Construção dos filtros
+  // -------------------------
+
   async buildAllFilters(): Promise<VaultFilterList> {
-    const builderFilter = {} as VaultFilterList;
-    builderFilter.typeFilter = await this.addTypeFilter(["favorites"], this._organization?.id);
-    builderFilter.collectionFilter = await this.addCollectionFilter();
-    builderFilter.trashFilter = await this.addTrashFilter();
-    return builderFilter;
+    return {
+      typeFilter: await this.addTypeFilter(["favorites"], this._organization?.id),
+      collectionFilter: await this.addCollectionFilter(),
+      trashFilter: await this.addTrashFilter(),
+    };
   }
 
   async getDefaultFilter(): Promise<TreeNode<VaultFilterType>> {
