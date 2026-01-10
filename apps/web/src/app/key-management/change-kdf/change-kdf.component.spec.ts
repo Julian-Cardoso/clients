@@ -112,6 +112,19 @@ describe("ChangeKdfComponent", () => {
     });
   });
 
+
+
+ngOnInit() {
+  this.initializeComponent();
+}
+
+private initializeComponent() {
+  this.loadData();
+  this.setupMenu();
+  this.registerEvents();
+}
+
+
   describe("Component Initialization", () => {
     describe("given PBKDF2 configuration", () => {
       it("should initialize form with PBKDF2 values and validators when component loads", async () => {
