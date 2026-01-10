@@ -277,6 +277,13 @@ function initializeAutofill() {
   await flushPromises();
 }
 
+  function closeNotificationBar(data: any) {
+  sendMockExtensionMessage({
+    command: "closeNotificationBar",
+    data,
+  });
+}
+
 
   describe("when a save cipher attempt is completed", () => {
     beforeEach(async () => {
