@@ -207,41 +207,19 @@ private async executeFillScript(script: FillScript[]) {
    * @private
    */
   private insertValueIntoField(element: FormFieldElement | null, value: string) {
-    if (!element || !value) {
-      return;
-    }
+  if (!this.canInsertValue(element, value)) return;
 
-    const elementCanBeReadonly =
-      elementIsInputElement(element) || elementIsTextAreaElement(element);
-    const elementCanBeFilled = elementCanBeReadonly || elementIsSelectElement(element);
-    const elementValue = (element as HTMLInputElement)?.value || element?.innerText || "";
-
-    const elementAlreadyHasTheValue = !!(elementValue?.length && elementValue === value);
-
-    if (
-      elementAlreadyHasTheValue ||
-      (elementCanBeReadonly && element.readOnly) ||
-      (elementCanBeFilled && element.disabled)
-    ) {
-      return;
-    }
-
-    if (!elementIsFillableFormField(element)) {
-      this.handleInsertValueAndTriggerSimulatedEvents(element, () => (element.innerText = value));
-      return;
-    }
-
-    const isFillableCheckboxOrRadioElement =
-      elementIsInputElement(element) &&
-      new Set(["checkbox", "radio"]).has(element.type) &&
-      new Set(["true", "y", "1", "yes", "✓"]).has(String(value).toLowerCase());
-    if (isFillableCheckboxOrRadioElement) {
-      this.handleInsertValueAndTriggerSimulatedEvents(element, () => (element.checked = true));
-      return;
-    }
-
-    this.handleInsertValueAndTriggerSimulatedEvents(element, () => (element.value = value));
+  if (!elementIsFillableFormField(element)) {
+    return this.insertTextContent(element, value);
   }
+
+  if (this.isCheckboxOrRadio(element, value)) {
+    return this.insertCheckedValue(element);
+  }
+
+  this.insertInputValue(element, value);
+}
+
 
   /**
    * Simulates pre- and post-insert events on the element meant to mimic user interactions
