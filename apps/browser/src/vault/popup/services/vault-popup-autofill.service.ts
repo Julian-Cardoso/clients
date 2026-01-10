@@ -275,6 +275,24 @@ private isValidAutofillContext(
   return !!tab && pageDetails.length > 0;
 }
 
+private async executeAutofill(
+  cipher: CipherView,
+  tab: chrome.tabs.Tab,
+  pageDetails: PageDetail[],
+): Promise<string | null> {
+  return this.autofillService.doAutoFill({
+    tab,
+    cipher,
+    pageDetails,
+    doc: window.document,
+    fillNewPassword: true,
+    allowTotpAutofill: true,
+  });
+}
+
+
+
+
 
   private async _closePopup(cipher: CipherView, tab: chrome.tabs.Tab | null) {
     if (BrowserPopupUtils.inSingleActionPopout(window, VaultPopoutType.viewVaultItem) && tab.id) {
