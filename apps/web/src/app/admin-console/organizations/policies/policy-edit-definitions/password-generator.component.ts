@@ -77,3 +77,16 @@ export class PasswordGeneratorPolicyComponent extends BasePolicyEditComponent {
   }
 }
 
+class PasswordPolicyConstraints {
+  static account() {
+    const profile = BuiltIn.password.profiles[Profile.account].constraints.default;
+    const passphrase = BuiltIn.passphrase.profiles[Profile.account].constraints.default;
+
+    return {
+      length: profile.length,
+      minNumber: profile.minNumber,
+      minSpecial: profile.minSpecial,
+      numWords: passphrase.numWords,
+    };
+  }
+}
