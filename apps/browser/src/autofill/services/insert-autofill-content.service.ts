@@ -49,6 +49,22 @@ class InsertAutofillContentService implements InsertAutofillContentServiceInterf
   await this.executeFillScript(fillScript.script);
 }
 
+private shouldAbortAutofill(fillScript: AutofillScript): boolean {
+  return (
+    !fillScript.script?.length ||
+    currentlyInSandboxedIframe() ||
+    this.userCancelledInsecureUrlAutofill(fillScript.savedUrls) ||
+    this.userCancelledUntrustedIframeAutofill(fillScript)
+  );
+}
+
+private async executeFillScript(script: FillScript[]) {
+  for (const action of script) {
+    await this.runFillScriptAction(action);
+  }
+}
+
+
 
   /**
    * Checks if the autofill is occurring on a page that can be considered secure. If the page is not secure,
