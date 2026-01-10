@@ -266,6 +266,18 @@ function initializeAutofill() {
     });
   });
 
+  async function openDefaultNotificationBar() {
+  sendMockExtensionMessage({
+    command: "openNotificationBar",
+    data: {
+      type: NotificationType.ChangePassword,
+      typeData: mock<NotificationTypeData>(),
+    },
+  });
+  await flushPromises();
+}
+
+
   describe("when a save cipher attempt is completed", () => {
     beforeEach(async () => {
       sendMockExtensionMessage({
