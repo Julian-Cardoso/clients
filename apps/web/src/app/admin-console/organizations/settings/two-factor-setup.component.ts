@@ -64,25 +64,30 @@ export class TwoFactorSetupComponent extends BaseTwoFactorSetupComponent impleme
     );
   }
 
-  async ngOnInit() {
-    const userId = await firstValueFrom(getUserId(this.accountService.activeAccount$));
-    this.route.params
-      .pipe(
-        concatMap((params) =>
-          this.organizationService
-            .organizations$(userId)
-            .pipe(getOrganizationById(params.organizationId))
-            .pipe(map((organization) => ({ params, organization }))),
-        ),
-        tap(async (mapResponse) => {
-          this.organizationId = mapResponse.params.organizationId;
-          this.organization = mapResponse.organization;
-        }),
-        concatMap(async () => await super.ngOnInit()),
-        takeUntil(this.destroy$),
-      )
-      .subscribe();
-  }
+ async ngOnInit() {
+  await this.initializeOrganizationContext();
+  await super.ngOnInit();
+}
+
+private async initializeOrganizationContext(): Promise<void> {
+  const userId = await firstValueFrom(getUserId(this.accountService.activeAccount$));
+
+  this.route.params
+    .pipe(
+      concatMap((params) =>
+        this.organizationService
+          .organizations$(userId)
+          .pipe(getOrganizationById(params.organizationId))
+          .pipe(map((organization) => ({ params, organization }))),
+      ),
+      tap(({ params, organization }) => {
+        this.organizationId = params.organizationId;
+        this.organization = organization;
+      }),
+      takeUntil(this.destroy$),
+    )
+    .subscribe();
+}
 
   async manage(type: TwoFactorProviderType) {
     // clear any existing subscriptions before creating a new one
