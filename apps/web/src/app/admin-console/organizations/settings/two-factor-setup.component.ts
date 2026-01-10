@@ -90,48 +90,39 @@ private async initializeOrganizationContext(): Promise<void> {
 }
 
   async manage(type: TwoFactorProviderType) {
-    // clear any existing subscriptions before creating a new one
-    this.twoFactorSetupSubscription?.unsubscribe();
+  this.twoFactorSetupSubscription?.unsubscribe();
 
-    switch (type) {
-      case TwoFactorProviderType.OrganizationDuo: {
-        const twoFactorVerifyDialogRef = TwoFactorVerifyComponent.open(this.dialogService, {
-          data: { type: type, organizationId: this.organizationId },
-        });
-        const result: AuthResponse<TwoFactorDuoResponse> = await lastValueFrom(
-          twoFactorVerifyDialogRef.closed,
-        );
-        if (!result) {
-          return;
-        }
-        const duoComp: DialogRef<boolean, any> = TwoFactorSetupDuoComponent.open(
-          this.dialogService,
-          {
-            data: {
-              authResponse: result,
-              organizationId: this.organizationId,
-            },
-          },
-        );
-        this.twoFactorSetupSubscription = duoComp.componentInstance.onChangeStatus
-          .pipe(first(), takeUntil(this.destroy$))
-          .subscribe((enabled: boolean) => {
-            duoComp.close();
-            this.updateStatus(enabled, TwoFactorProviderType.OrganizationDuo);
-          });
+  if (type === TwoFactorProviderType.OrganizationDuo) {
+    await this.handleOrganizationDuo();
+  }
+}
 
-        break;
-      }
-      default:
-        break;
-    }
+private async handleOrganizationDuo(): Promise<void> {
+  const authResponse = await this.verifyOrganizationDuo();
+  if (!authResponse) {
+    return;
   }
 
-  protected getTwoFactorProviders() {
-    return this.twoFactorService.getTwoFactorOrganizationProviders(this.organizationId);
-  }
+  this.openDuoSetup(authResponse);
+}
 
-  protected filterProvider(type: TwoFactorProviderType): boolean {
-    return type !== TwoFactorProviderType.OrganizationDuo;
-  }
+private async verifyOrganizationDuo(): Promise<AuthResponse<TwoFactorDuoResponse> | null> {
+  const dialogRef = TwoFactorVerifyComponent.open(this.dialogService, {
+    data: { type: TwoFactorProviderType.OrganizationDuo, organizationId: this.organizationId },
+  });
+
+  return await lastValueFrom(dialogRef.closed);
+}
+
+private openDuoSetup(authResponse: AuthResponse<TwoFactorDuoResponse>): void {
+  const dialogRef = TwoFactorSetupDuoComponent.open(this.dialogService, {
+    data: { authResponse, organizationId: this.organizationId },
+  });
+
+  this.twoFactorSetupSubscription = dialogRef.componentInstance.onChangeStatus
+    .pipe(first(), takeUntil(this.destroy$))
+    .subscribe((enabled) => {
+      dialogRef.close();
+      this.updateStatus(enabled, TwoFactorProviderType.OrganizationDuo);
+    });
 }
