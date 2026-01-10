@@ -228,53 +228,32 @@ export class VaultPopupAutofillService {
   }
 
   private async _internalDoAutofill(
-    cipher: CipherView,
-    tab: chrome.tabs.Tab,
-    pageDetails: PageDetail[],
-    skipPasswordReprompt = false,
-  ): Promise<boolean> {
-    if (
-      !skipPasswordReprompt &&
-      cipher.reprompt !== CipherRepromptType.None &&
-      !(await this.passwordRepromptService.showPasswordPrompt())
-    ) {
-      return false;
-    }
-
-    if (tab == null || pageDetails.length === 0) {
-      this.toastService.showToast({
-        variant: "error",
-        title: null,
-        message: this.i18nService.t("autofillError"),
-      });
-      return false;
-    }
-
-    try {
-      const totpCode = await this.autofillService.doAutoFill({
-        tab,
-        cipher,
-        pageDetails,
-        doc: window.document,
-        fillNewPassword: true,
-        allowTotpAutofill: true,
-      });
-
-      if (totpCode != null) {
-        this.platformUtilService.copyToClipboard(totpCode, { window: window });
-      }
-    } catch {
-      this.toastService.showToast({
-        variant: "error",
-        title: null,
-        message: this.i18nService.t("autofillError"),
-      });
-      return false;
-    }
-    await this.handleAutofillSuggestionUsed({ cipherId: cipher.id });
-
-    return true;
+  cipher: CipherView,
+  tab: chrome.tabs.Tab,
+  pageDetails: PageDetail[],
+  skipPasswordReprompt = false,
+): Promise<boolean> {
+  if (!(await this.canProceedWithAutofill(cipher, skipPasswordReprompt))) {
+    return false;
   }
+
+  if (!this.isValidAutofillContext(tab, pageDetails)) {
+    this.showAutofillError();
+    return false;
+  }
+
+  try {
+    const totpCode = await this.executeAutofill(cipher, tab, pageDetails);
+    this.handleTotpCopy(totpCode);
+  } catch {
+    this.showAutofillError();
+    return false;
+  }
+
+  await this.handleAutofillSuggestionUsed({ cipherId: cipher.id });
+  return true;
+}
+
 
   private async _closePopup(cipher: CipherView, tab: chrome.tabs.Tab | null) {
     if (BrowserPopupUtils.inSingleActionPopout(window, VaultPopoutType.viewVaultItem) && tab.id) {
