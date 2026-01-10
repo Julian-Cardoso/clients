@@ -87,6 +87,35 @@ export class OverlayNotificationsContentService implements OverlayNotificationsC
 
   this.openWhenDomIsReady(initData);
 }
+ 
+private isValidOpenMessage(message: NotificationsExtensionMessage): boolean {
+  return Boolean(message.data?.typeData);
+}
+
+private buildInitData(message: NotificationsExtensionMessage): NotificationBarIframeInitData {
+  const { type, typeData, params } = message.data!;
+  return {
+    type,
+    isVaultLocked: typeData.isVaultLocked,
+    theme: typeData.theme,
+    removeIndividualVault: typeData.removeIndividualVault,
+    importType: typeData.importType,
+    launchTimestamp: typeData.launchTimestamp,
+    params,
+  };
+}
+
+private shouldReplaceNotification(type: NotificationType): boolean {
+  return Boolean(this.currentNotificationBarType && type !== this.currentNotificationBarType);
+}
+
+private openWhenDomIsReady(initData: NotificationBarIframeInitData) {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => this.openNotificationBar(initData));
+    return;
+  }
+  this.openNotificationBar(initData);
+}
 
 
   /**
