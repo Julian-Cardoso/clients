@@ -40,12 +40,12 @@ type BulkConfirmDialogParams = {
 })
 export class BulkConfirmDialogComponent extends BaseBulkConfirmComponent {
   organization: Organization;
-  organizationKey$: Observable<OrgKey>;
   users: BulkUserDetails[];
+  organizationKey$: Observable<OrgKey>;
 
   constructor(
     protected keyService: KeyService,
-    @Inject(DIALOG_DATA) protected dialogParams: BulkConfirmDialogParams,
+    @Inject(DIALOG_DATA) dialogParams: BulkConfirmDialogParams,
     protected encryptService: EncryptService,
     private organizationUserApiService: OrganizationUserApiService,
     protected i18nService: I18nService,
@@ -54,36 +54,56 @@ export class BulkConfirmDialogComponent extends BaseBulkConfirmComponent {
   ) {
     super(keyService, encryptService, i18nService);
 
-    this.organization = dialogParams.organization;
-    this.organizationKey$ = this.stateProvider.activeUserId$.pipe(
-      switchMap((userId) => this.keyService.orgKeys$(userId)),
-      map((organizationKeysById) => organizationKeysById[this.organization.id as OrganizationId]),
-      takeUntilDestroyed(),
-    );
-    this.users = dialogParams.users;
+    this.initializeDialogData(dialogParams);
+    this.organizationKey$ = this.buildOrganizationKeyStream();
   }
 
-  protected getCryptoKey = async (): Promise<SymmetricCryptoKey> =>
-    await firstValueFrom(this.organizationKey$);
 
-  protected getPublicKeys = async (): Promise<
-    ListResponse<OrganizationUserBulkPublicKeyResponse | ProviderUserBulkPublicKeyResponse>
-  > =>
-    await this.organizationUserApiService.postOrganizationUsersPublicKey(
-      this.organization.id,
-      this.filteredUsers.map((user) => user.id),
+
+  private initializeDialogData(params: BulkConfirmDialogParams): void {
+    this.organization = params.organization;
+    this.users = params.users;
+  }
+
+  private buildOrganizationKeyStream(): Observable<OrgKey> {
+    return this.stateProvider.activeUserId$.pipe(
+      switchMap((userId) => this.keyService.orgKeys$(userId)),
+      map((keys) => keys[this.organization.id as OrganizationId]),
+      takeUntilDestroyed(),
     );
+  }
 
-  protected isAccepted = (user: BulkUserDetails) =>
-    user.status === OrganizationUserStatusType.Accepted;
 
-  protected postConfirmRequest = async (
+  protected async getCryptoKey(): Promise<SymmetricCryptoKey> {
+    return await firstValueFrom(this.organizationKey$);
+  }
+
+  protected async getPublicKeys(): Promise<
+    ListResponse<OrganizationUserBulkPublicKeyResponse | ProviderUserBulkPublicKeyResponse>
+  > {
+    return this.organizationUserApiService.postOrganizationUsersPublicKey(
+      this.organization.id,
+      this.getFilteredUserIds(),
+    );
+  }
+
+  protected isAccepted(user: BulkUserDetails): boolean {
+    return user.status === OrganizationUserStatusType.Accepted;
+  }
+
+  protected async postConfirmRequest(
     userIdsWithKeys: { id: string; key: string }[],
-  ): Promise<ListResponse<OrganizationUserBulkResponse | ProviderUserBulkResponse>> => {
-    return await firstValueFrom(
+  ): Promise<ListResponse<OrganizationUserBulkResponse | ProviderUserBulkResponse>> {
+    return firstValueFrom(
       this.organizationUserService.bulkConfirmUsers(this.organization, userIdsWithKeys),
     );
-  };
+  }
+
+
+
+  private getFilteredUserIds(): string[] {
+    return this.filteredUsers.map((user) => user.id);
+  }
 
   static open(dialogService: DialogService, config: DialogConfig<BulkConfirmDialogParams>) {
     return dialogService.open(BulkConfirmDialogComponent, config);
