@@ -220,6 +220,34 @@ private async executeFillScript(script: FillScript[]) {
   this.insertInputValue(element, value);
 }
 
+private shouldSkipInsert(
+  element: FormFieldElement | null,
+  value: string,
+): boolean {
+  if (!element || !value) {
+    return true;
+  }
+
+  const elementCanBeReadonly =
+    elementIsInputElement(element) || elementIsTextAreaElement(element);
+
+  const elementCanBeFilled =
+    elementCanBeReadonly || elementIsSelectElement(element);
+
+  const currentValue =
+    "value" in element ? element.value : element.innerText || "";
+
+  const alreadyHasValue =
+    currentValue.length > 0 && currentValue === value;
+
+  return (
+    alreadyHasValue ||
+    (elementCanBeReadonly && element.readOnly) ||
+    (elementCanBeFilled && element.disabled)
+  );
+}
+
+
 
   /**
    * Simulates pre- and post-insert events on the element meant to mimic user interactions
