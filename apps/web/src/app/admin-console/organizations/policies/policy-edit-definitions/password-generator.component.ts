@@ -26,86 +26,54 @@ export class PasswordGeneratorPolicy extends BasePolicyEditDefinition {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PasswordGeneratorPolicyComponent extends BasePolicyEditComponent {
-  // these properties forward the application default settings to the UI
-  // for HTML attribute bindings
-  protected readonly minLengthMin =
-    BuiltIn.password.profiles[Profile.account].constraints.default.length.min;
-  protected readonly minLengthMax =
-    BuiltIn.password.profiles[Profile.account].constraints.default.length.max;
-  protected readonly minNumbersMin =
-    BuiltIn.password.profiles[Profile.account].constraints.default.minNumber.min;
-  protected readonly minNumbersMax =
-    BuiltIn.password.profiles[Profile.account].constraints.default.minNumber.max;
-  protected readonly minSpecialMin =
-    BuiltIn.password.profiles[Profile.account].constraints.default.minSpecial.min;
-  protected readonly minSpecialMax =
-    BuiltIn.password.profiles[Profile.account].constraints.default.minSpecial.max;
-  protected readonly minNumberWordsMin =
-    BuiltIn.passphrase.profiles[Profile.account].constraints.default.numWords.min;
-  protected readonly minNumberWordsMax =
-    BuiltIn.passphrase.profiles[Profile.account].constraints.default.numWords.max;
+  protected readonly constraints = PasswordPolicyConstraints.account();
 
   data = this.formBuilder.group({
     overridePasswordType: [null],
-    minLength: [null, [Validators.min(this.minLengthMin), Validators.max(this.minLengthMax)]],
+    minLength: [null, [Validators.min(this.constraints.length.min), Validators.max(this.constraints.length.max)]],
     useUpper: [null],
     useLower: [null],
     useNumbers: [null],
     useSpecial: [null],
-    minNumbers: [null, [Validators.min(this.minNumbersMin), Validators.max(this.minNumbersMax)]],
-    minSpecial: [null, [Validators.min(this.minSpecialMin), Validators.max(this.minSpecialMax)]],
+    minNumbers: [null, [Validators.min(this.constraints.minNumber.min), Validators.max(this.constraints.minNumber.max)]],
+    minSpecial: [null, [Validators.min(this.constraints.minSpecial.min), Validators.max(this.constraints.minSpecial.max)]],
     minNumberWords: [
       null,
-      [Validators.min(this.minNumberWordsMin), Validators.max(this.minNumberWordsMax)],
+      [Validators.min(this.constraints.numWords.min), Validators.max(this.constraints.numWords.max)],
     ],
     capitalize: [null],
     includeNumber: [null],
   });
 
-  overridePasswordTypeOptions: { name: string; value: string }[];
+  overridePasswordTypeOptions = this.buildOverrideOptions();
 
-  // These subjects cache visibility of the sub-options for passwords
-  // and passphrases; without them policy controls don't show up at all.
-  private showPasswordPolicies = new BehaviorSubject<boolean>(true);
-  private showPassphrasePolicies = new BehaviorSubject<boolean>(true);
-
-  /** Emits `true` when the password policy options should be displayed */
-  get showPasswordPolicies$() {
-    return this.showPasswordPolicies.asObservable();
-  }
-
-  /** Emits `true` when the passphrase policy options should be displayed */
-  get showPassphrasePolicies$() {
-    return this.showPassphrasePolicies.asObservable();
-  }
+  private showPasswordPolicies$ = new BehaviorSubject<boolean>(true);
+  private showPassphrasePolicies$ = new BehaviorSubject<boolean>(true);
 
   constructor(
     private formBuilder: UntypedFormBuilder,
-    i18nService: I18nService,
+    private i18nService: I18nService,
   ) {
     super();
+    this.setupVisibilityHandlers();
+  }
 
-    this.overridePasswordTypeOptions = [
-      { name: i18nService.t("userPreference"), value: null },
-      { name: i18nService.t("password"), value: PASSWORD_POLICY_VALUE },
-      { name: i18nService.t("passphrase"), value: "passphrase" },
+  private buildOverrideOptions() {
+    return [
+      { name: this.i18nService.t("userPreference"), value: null },
+      { name: this.i18nService.t("password"), value: PASSWORD_POLICY },
+      { name: this.i18nService.t("passphrase"), value: PASSPHRASE_POLICY },
     ];
+  }
+
+  private setupVisibilityHandlers(): void {
+    this.data.valueChanges
+      .pipe(isEnabled(PASSWORD_POLICY), takeUntilDestroyed())
+      .subscribe(this.showPasswordPolicies$);
 
     this.data.valueChanges
-      .pipe(isEnabled(PASSWORD_POLICY_VALUE), takeUntilDestroyed())
-      .subscribe(this.showPasswordPolicies);
-    this.data.valueChanges
-      .pipe(isEnabled(PASSPHRASE_POLICY_VALUE), takeUntilDestroyed())
-      .subscribe(this.showPassphrasePolicies);
+      .pipe(isEnabled(PASSPHRASE_POLICY), takeUntilDestroyed())
+      .subscribe(this.showPassphrasePolicies$);
   }
 }
 
-const PASSWORD_POLICY_VALUE = "password";
-const PASSPHRASE_POLICY_VALUE = "passphrase";
-
-function isEnabled(enabledValue: string) {
-  return map((d: { overridePasswordType: string }) => {
-    const type = d?.overridePasswordType ?? enabledValue;
-    return type === enabledValue;
-  });
-}
