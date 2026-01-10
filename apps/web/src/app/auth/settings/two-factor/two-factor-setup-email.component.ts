@@ -33,8 +33,6 @@ import { I18nPipe } from "@bitwarden/ui-common";
 
 import { TwoFactorSetupMethodBaseComponent } from "./two-factor-setup-method-base.component";
 
-// FIXME(https://bitwarden.atlassian.net/browse/CL-764): Migrate to OnPush
-// eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection
 @Component({
   selector: "app-two-factor-setup-email",
   templateUrl: "two-factor-setup-email.component.html",
@@ -56,15 +54,15 @@ export class TwoFactorSetupEmailComponent
   extends TwoFactorSetupMethodBaseComponent
   implements OnInit
 {
-  // FIXME(https://bitwarden.atlassian.net/browse/CL-903): Migrate to Signals
-  // eslint-disable-next-line @angular-eslint/prefer-output-emitter-ref
-  @Output() onChangeStatus: EventEmitter<boolean> = new EventEmitter();
+  @Output() onChangeStatus = new EventEmitter<boolean>();
+
   type = TwoFactorProviderType.Email;
-  sentEmail: string = "";
-  emailPromise: Promise<unknown> | undefined;
+  sentEmail = "";
+  emailPromise?: Promise<unknown>;
   override componentName = "app-two-factor-email";
+
   formGroup = this.formBuilder.group({
-    token: ["", [Validators.required]],
+    token: ["", Validators.required],
     email: ["", [Validators.email, Validators.required]],
   });
 
@@ -91,84 +89,126 @@ export class TwoFactorSetupEmailComponent
       toastService,
     );
   }
-  get token(): string {
-    return this.formGroup.get("token")?.value || "";
-  }
-  set token(value: string | null) {
-    this.formGroup.get("token")?.setValue(value || "");
-  }
-  get email(): string {
-    return this.formGroup.get("email")?.value || "";
-  }
-  set email(value: string | null | undefined) {
-    this.formGroup.get("email")?.setValue(value || "");
-  }
+
 
   async ngOnInit() {
-    await this.auth(this.data);
+    await this.authenticateEmailTwoFactor(this.data);
   }
 
-  auth(authResponse: AuthResponse<TwoFactorEmailResponse>) {
-    super.auth(authResponse);
-    return this.processResponse(authResponse.response);
+
+
+  get token(): string {
+    return this.formGroup.get("token")?.value ?? "";
   }
+
+  set token(value: string | null) {
+    this.formGroup.get("token")?.setValue(value ?? "");
+  }
+
+  get email(): string {
+    return this.formGroup.get("email")?.value ?? "";
+  }
+
+  set email(value: string | null | undefined) {
+    this.formGroup.get("email")?.setValue(value ?? "");
+  }
+
+
 
   submit = async () => {
     this.formGroup.markAllAsTouched();
-
-    if (this.enabled) {
-      await this.disableEmail();
-      this.onChangeStatus.emit(false);
-    } else {
-      if (this.formGroup.invalid) {
-        return;
-      }
-      await this.enable();
-      this.onChangeStatus.emit(true);
-    }
+    this.enabled ? await this.handleDisable() : await this.handleEnable();
   };
 
-  private disableEmail() {
-    return super.disableMethod();
-  }
-
   sendEmail = async () => {
-    const request = await this.buildRequestModel(TwoFactorEmailRequest);
-    request.email = this.email;
+    const request = await this.buildEmailRequest();
     this.emailPromise = this.twoFactorService.postTwoFactorEmailSetup(request);
     await this.emailPromise;
     this.sentEmail = this.email;
   };
 
-  protected async enable() {
-    const request = await this.buildRequestModel(UpdateTwoFactorEmailRequest);
-    request.email = this.email;
-    request.token = this.token;
-
-    const response = await this.twoFactorService.putTwoFactorEmail(request);
-    await this.processResponse(response);
-    this.onUpdated.emit(true);
-  }
-
   onClose = () => {
     this.dialogRef.close(this.enabled);
   };
 
-  private async processResponse(response: TwoFactorEmailResponse) {
+
+  private authenticateEmailTwoFactor(
+    authResponse: AuthResponse<TwoFactorEmailResponse>,
+  ) {
+    super.auth(authResponse);
+    return this.processEmailTwoFactorResponse(authResponse.response);
+  }
+
+  protected async enable() {
+    const request = await this.buildEnableRequest();
+    const response = await this.twoFactorService.putTwoFactorEmail(request);
+    await this.processEmailTwoFactorResponse(response);
+    this.onUpdated.emit(true);
+  }
+
+  private disableEmail() {
+    return super.disableMethod();
+  }
+
+ 
+
+  private async handleDisable() {
+    await this.disableEmail();
+    this.onChangeStatus.emit(false);
+  }
+
+  private async handleEnable() {
+    if (this.formGroup.invalid) {
+      return;
+    }
+    await this.enable();
+    this.onChangeStatus.emit(true);
+  }
+
+
+
+  private async processEmailTwoFactorResponse(
+    response: TwoFactorEmailResponse,
+  ) {
+    this.updateComponentState(response);
+    await this.fillEmailIfMissing(response);
+  }
+
+  private updateComponentState(response: TwoFactorEmailResponse) {
     this.token = null;
     this.email = response.email;
     this.enabled = response.enabled;
-    if (!this.enabled && (this.email == null || this.email === "")) {
-      this.email = await firstValueFrom(
-        this.accountService.activeAccount$.pipe(map((a) => a?.email)),
-      );
+  }
+
+  private async fillEmailIfMissing(response: TwoFactorEmailResponse) {
+    if (!response.enabled && !response.email) {
+      this.email = await this.getAccountEmail();
     }
   }
-  /**
-   * Strongly typed helper to open a TwoFactorEmailComponentComponent
-   * @param dialogService Instance of the dialog service that will be used to open the dialog
-   * @param config Configuration for the dialog
-   */
+
+  private async getAccountEmail(): Promise<string> {
+    return firstValueFrom(
+      this.accountService.activeAccount$.pipe(map((a) => a?.email ?? "")),
+    );
+  }
+
+
+
+  private async buildEmailRequest() {
+    const request = await this.buildRequestModel(TwoFactorEmailRequest);
+    request.email = this.email;
+    return request;
+  }
+
+  private async buildEnableRequest() {
+    const request = await this.buildRequestModel(UpdateTwoFactorEmailRequest);
+    request.email = this.email;
+    request.token = this.token;
+    return request;
+  }
+
+
+
   static open(
     dialogService: DialogService,
     config: DialogConfig<AuthResponse<TwoFactorEmailResponse>>,
