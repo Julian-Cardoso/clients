@@ -3,6 +3,7 @@ import {
   Component,
   ElementRef,
   Inject,
+  Injectable,
   Input,
   OnDestroy,
   ViewChild,
@@ -30,10 +31,10 @@ import {
 import { SharedModule } from "@bitwarden/web-vault/app/shared";
 
 import {
-  HecConnectDialogResult,
   DatadogConnectDialogResult,
-  HecConnectDialogResultStatus,
   DatadogConnectDialogResultStatus,
+  HecConnectDialogResult,
+  HecConnectDialogResultStatus,
   openDatadogConnectDialog,
   openHecConnectDialog,
 } from "../integration-dialog/index";
@@ -109,24 +110,20 @@ export class IntegrationCardComponent implements AfterViewInit, OnDestroy {
     combineLatest([this.themeStateService.selectedTheme$, this.systemTheme$])
       .pipe(takeUntil(this.destroyed$))
       .subscribe(([theme, systemTheme]) => {
-        // When the card doesn't have a dark mode image, exit early
         if (!this.imageDarkMode) {
           return;
         }
 
-        if (theme === ThemeType.System) {
-          // When the user's preference is the system theme,
-          // use the system theme to determine the image
-          const prefersDarkMode = systemTheme === ThemeType.Dark;
+        const source =
+          theme === ThemeType.System
+            ? systemTheme === ThemeType.Dark
+              ? this.imageDarkMode
+              : this.image
+            : theme === ThemeType.Dark
+              ? this.imageDarkMode
+              : this.image;
 
-          this.imageEle.nativeElement.src = prefersDarkMode ? this.imageDarkMode : this.image;
-        } else if (theme === ThemeType.Dark) {
-          // When the user's preference is dark mode, use the dark mode image
-          this.imageEle.nativeElement.src = this.imageDarkMode;
-        } else {
-          // Otherwise use the light mode image
-          this.imageEle.nativeElement.src = this.image;
-        }
+        this.imageService.updateImageSource(this.imageEle, source);
       });
   }
 
@@ -411,5 +408,14 @@ export class IntegrationCardComponent implements AfterViewInit, OnDestroy {
       title: "",
       message: this.i18nService.t("mustBeOrgOwnerToPerformAction"),
     });
+  }
+}
+
+@Injectable({ providedIn: "root" })
+export class ImageService {
+  updateImageSource(element: ElementRef<HTMLImageElement>, source: string): void {
+    if (element?.nativeElement) {
+      element.nativeElement.src = source;
+    }
   }
 }
