@@ -1,7 +1,14 @@
-import { input, HostBinding, Directive, inject, ElementRef, booleanAttribute } from "@angular/core";
+import {
+  booleanAttribute,
+  Directive,
+  ElementRef,
+  HostBinding,
+  inject,
+  Injectable,
+  input,
+} from "@angular/core";
 
 import { AriaDisableDirective } from "../a11y";
-import { ariaDisableElement } from "../utils";
 
 export type LinkType = "primary" | "secondary" | "contrast" | "light";
 
@@ -92,12 +99,26 @@ export class AnchorLinkDirective extends LinkDirective {
   }
 }
 
+@Injectable({ providedIn: "root" })
+export class AriaDisableService {
+  applyAriaDisable(element: HTMLElement, isDisabled: boolean): void {
+    if (isDisabled) {
+      element.setAttribute("aria-disabled", "true");
+      element.classList.add("aria-disabled");
+    } else {
+      element.removeAttribute("aria-disabled");
+      element.classList.remove("aria-disabled");
+    }
+  }
+}
+
 @Directive({
   selector: "button[bitLink]",
   hostDirectives: [AriaDisableDirective],
 })
 export class ButtonLinkDirective extends LinkDirective {
   private el = inject(ElementRef<HTMLButtonElement>);
+  private ariaDisableService = inject(AriaDisableService);
 
   readonly disabled = input(false, { transform: booleanAttribute });
 
@@ -109,6 +130,6 @@ export class ButtonLinkDirective extends LinkDirective {
 
   constructor() {
     super();
-    ariaDisableElement(this.el.nativeElement, this.disabled);
+    this.ariaDisableService.applyAriaDisable(this.el.nativeElement, this.disabled);
   }
 }
