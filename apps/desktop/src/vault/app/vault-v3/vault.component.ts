@@ -6,10 +6,11 @@ import {
   OnDestroy,
   OnInit,
   ViewChild,
+  viewChild,
   ViewContainerRef,
 } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
-import { firstValueFrom, Subject, takeUntil, switchMap, lastValueFrom, Observable } from "rxjs";
+import { firstValueFrom, lastValueFrom, Observable, Subject, switchMap, takeUntil } from "rxjs";
 import { filter, map, take } from "rxjs/operators";
 
 import { CollectionService, CollectionView } from "@bitwarden/admin-console/common";
@@ -52,19 +53,21 @@ import { filterOutNullish } from "@bitwarden/common/vault/utils/observable-utili
 import {
   BadgeModule,
   ButtonModule,
+  COPY_CLICK_LISTENER,
+  CopyClickListener,
   DialogService,
   ItemModule,
   ToastService,
-  CopyClickListener,
-  COPY_CLICK_LISTENER,
 } from "@bitwarden/components";
 import { I18nPipe } from "@bitwarden/ui-common";
 import {
   AddEditFolderDialogComponent,
   AddEditFolderDialogResult,
+  ArchiveCipherUtilitiesService,
   AttachmentDialogResult,
   AttachmentsV2Component,
   ChangeLoginPasswordService,
+  CipherFormComponent,
   CipherFormConfig,
   CipherFormConfigService,
   CipherFormGenerationService,
@@ -76,8 +79,6 @@ import {
   DefaultChangeLoginPasswordService,
   DefaultCipherFormConfigService,
   PasswordRepromptService,
-  CipherFormComponent,
-  ArchiveCipherUtilitiesService,
 } from "@bitwarden/vault";
 
 import { SearchBarService } from "../../../app/layout/search/search-bar.service";
@@ -147,12 +148,10 @@ export class VaultComponent<C extends CipherViewLike>
   vaultFilterComponent: VaultFilterComponent | null = null;
   // FIXME(https://bitwarden.atlassian.net/browse/CL-903): Migrate to Signals
   // eslint-disable-next-line @angular-eslint/prefer-signals
-  @ViewChild("folderAddEdit", { read: ViewContainerRef, static: true })
-  folderAddEditModalRef: ViewContainerRef | null = null;
+  folderAddEditModalRef = viewChild("folderAddEdit", { read: ViewContainerRef, static: true });
   // FIXME(https://bitwarden.atlassian.net/browse/CL-903): Migrate to Signals
   // eslint-disable-next-line @angular-eslint/prefer-signals
-  @ViewChild(CipherFormComponent)
-  cipherFormComponent: CipherFormComponent | null = null;
+  cipherFormComponent = viewChild(CipherFormComponent);
 
   action: CipherFormMode | "view" | null = null;
   cipherId: string | null = null;

@@ -18,12 +18,12 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 import * as JSZip from "jszip";
 import {
-  Observable,
-  Subject,
-  lastValueFrom,
+  BehaviorSubject,
   combineLatest,
   firstValueFrom,
-  BehaviorSubject,
+  lastValueFrom,
+  Observable,
+  Subject,
 } from "rxjs";
 import { combineLatestWith, filter, map, switchMap, takeUntil } from "rxjs/operators";
 
@@ -61,15 +61,15 @@ import {
   DialogService,
   FormFieldModule,
   IconButtonModule,
+  LinkModule,
   RadioButtonModule,
   SectionComponent,
   SectionHeaderComponent,
   SelectModule,
   ToastService,
-  LinkModule,
 } from "@bitwarden/components";
 
-import { ImporterMetadata, DataLoader, Loader, Instructions } from "../metadata";
+import { DataLoader, ImporterMetadata, Instructions, Loader } from "../metadata";
 import { ImportOption, ImportResult, ImportType } from "../models";
 import {
   ImportCollectionServiceAbstraction,
@@ -220,13 +220,12 @@ export class ImportComponent implements OnInit, OnDestroy, AfterViewInit {
   onSuccessfulImport = new EventEmitter<string>();
 
   ngAfterViewInit(): void {
-    this.bitSubmit.loading$.pipe(takeUntil(this.destroy$)).subscribe((loading) => {
-      this.formLoading.emit(loading);
-    });
-
-    this.bitSubmit.disabled$.pipe(takeUntil(this.destroy$)).subscribe((disabled) => {
-      this.formDisabled.emit(disabled);
-    });
+    this.formStateService.monitorFormState(
+      this.bitSubmit,
+      this.destroy$,
+      (loading) => this.formLoading.emit(loading),
+      (disabled) => this.formDisabled.emit(disabled),
+    );
   }
 
   private importer$ = new BehaviorSubject<ImporterMetadata | undefined>(undefined);
@@ -269,7 +268,11 @@ export class ImportComponent implements OnInit, OnDestroy, AfterViewInit {
     private restrictedItemTypesService: RestrictedItemTypesService,
     private destroyRef: DestroyRef,
     protected importMetadataService: ImportMetadataServiceAbstraction,
+    private formStateService: FormStateService,
   ) {}
+  ngOnDestroy(): void {
+    throw new Error("Method not implemented.");
+  }
 
   protected get importBlockedByPolicy(): boolean {
     return this._importBlockedByPolicy;
@@ -632,19 +635,14 @@ export class ImportComponent implements OnInit, OnDestroy, AfterViewInit {
     if (files != null && files.length > 0) {
       try {
         const content = await this.getFileContents(files[0]);
-        if (content != null) {
+        if (content) {
           fileContents = content;
         }
-      } catch (e) {
-        this.logService.error(e);
+      } catch {
+        // ignore
       }
     }
 
     return fileContents;
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 }
