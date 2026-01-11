@@ -4,6 +4,7 @@ import {
   Component,
   EventEmitter,
   Inject,
+  Injectable,
   Input,
   OnDestroy,
   OnInit,
@@ -1104,4 +1105,11 @@ export class ChangePlanDialogComponent implements OnInit, OnDestroy {
   }
 
   getCardBrandIcon = () => getCardBrandIcon(this.paymentMethod);
+}
+
+@Injectable({ providedIn: "root" })
+export class PaymentMethodService {
+  getPaymentMethodForm(component: EnterPaymentMethodComponent): any {
+    return component.getFormGroup();
+  }
 }

@@ -1,18 +1,19 @@
 import { CommonModule } from "@angular/common";
 import {
-  QueryList,
+  AfterViewInit,
   Component,
   ElementRef,
+  Injectable,
   OnDestroy,
-  AfterViewInit,
+  QueryList,
   ViewChildren,
 } from "@angular/core";
 import {
-  FormsModule,
-  ReactiveFormsModule,
+  FormArray,
   FormBuilder,
   FormGroup,
-  FormArray,
+  FormsModule,
+  ReactiveFormsModule,
 } from "@angular/forms";
 import { RouterModule } from "@angular/router";
 import { Subject, takeUntil } from "rxjs";
@@ -95,6 +96,7 @@ export class ExcludedDomainsComponent implements AfterViewInit, OnDestroy {
     private toastService: ToastService,
     private formBuilder: FormBuilder,
     private popupRouterCacheService: PopupRouterCacheService,
+    private focusService: FocusService,
   ) {
     this.accountSwitcherEnabled = enableAccountSwitching();
   }
@@ -133,9 +135,7 @@ export class ExcludedDomainsComponent implements AfterViewInit, OnDestroy {
   }
 
   focusNewUriInput(elementRef: ElementRef) {
-    if (elementRef?.nativeElement) {
-      elementRef.nativeElement.focus();
-    }
+    this.focusService.focusElement(elementRef);
   }
 
   async addNewDomain() {
@@ -238,5 +238,12 @@ export class ExcludedDomainsComponent implements AfterViewInit, OnDestroy {
 
   trackByFunction(index: number, _: string) {
     return index;
+  }
+}
+
+@Injectable({ providedIn: "root" })
+export class FocusService {
+  focusElement(element: ElementRef<HTMLElement> | undefined): void {
+    element?.nativeElement.focus();
   }
 }
